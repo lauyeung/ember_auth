@@ -18,12 +18,15 @@ class SessionController < Devise::SessionsController
     end
   end
 
- def destroy
-    signed_out = (Devise.sign_out_all_scopes ? sign_out : sign_out(resource_name))
-    render json: {
-      'csrf-param' => request_forgery_protection_token,
-      'csrf-token' => form_authenticity_token
-    }
+  def show
+    if user_signed_in?
+      render json: current_user
+    end
+  end
+
+  def destroy
+    sign_out :user
+    render json: {}, status: :accepted
   end
 
 end
