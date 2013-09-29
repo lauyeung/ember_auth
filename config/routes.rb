@@ -4,10 +4,11 @@ EmberAuth::Application.routes.draw do
     post "session" => "session#create"
     get "session" => "session#show"
     delete "session" => "session#destroy"
+    post "registration" => "registration#create"
   end
 
   namespace :api do
-    resources :users, only: [:show, :create]
+    resources :users, only: [:show]
   end
 
   # The priority is based upon order of creation: first created -> highest priority.

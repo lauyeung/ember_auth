@@ -3,7 +3,7 @@ App.RegistrationNewController = Ember.ObjectController.extend({
     signUp: function() {
       userInfo = this.getProperties('username', 'email', 'first_name', 'last_name', 'password', 'password_confirmation');
       data = {user: userInfo};
-      $.post('/api/users', data, null, 'json').then(this.onDidCreate.bind(this), this.onError.bind(this));
+      $.post('/registration', data, null, 'json').then(this.onDidCreate.bind(this), this.onError.bind(this));
     },
     cancel: function() {
       this.transitionToRoute('index');
