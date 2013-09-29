@@ -8,8 +8,8 @@
 // ==========================================================================
 
 
-// Version: v1.0.0-181-ga222bb4
-// Last commit: a222bb4 (2013-09-26 12:26:03 -0700)
+// Version: v1.0.0-196-gd5ae81c
+// Last commit: d5ae81c (2013-09-28 22:41:25 -0700)
 
 
 (function() {
@@ -196,8 +196,8 @@ if (!Ember.testing) {
 // ==========================================================================
 
 
-// Version: v1.0.0-181-ga222bb4
-// Last commit: a222bb4 (2013-09-26 12:26:03 -0700)
+// Version: v1.0.0-196-gd5ae81c
+// Last commit: d5ae81c (2013-09-28 22:41:25 -0700)
 
 
 (function() {
@@ -321,11 +321,13 @@ Ember.config = Ember.config || {};
 /**
   Hash of enabled Canary features. Add to before creating your application.
 
+  You can also define `ENV.FEATURES` if you need to enable features flagged at runtime.
+
   @property FEATURES
   @type Hash
 */
 
-Ember.FEATURES = {};
+Ember.FEATURES = Ember.ENV.FEATURES || {};
 
 /**
   Test that a feature is enabled. Parsed by Ember's build tools to leave
@@ -11291,7 +11293,7 @@ DependentArraysObserver.prototype = {
   },
 
   itemPropertyDidChange: function(obj, keyName, array, observerContext) {
-    Ember.run.once(this, 'flushChanges');
+    this.flushChanges();
   },
 
   flushChanges: function() {
@@ -11572,7 +11574,7 @@ ReduceComputedProperty.prototype.property = function () {
   If there are more than one arguments the first arguments are
   considered to be dependent property keys. The last argument is
   required to be an options object. The options object can have the
-  following four properties.
+  following four properties:
 
   `initialValue` - A value or function that will be used as the initial
   value for the computed. If this property is a function the result of calling
@@ -23989,20 +23991,6 @@ Ember.assert("Ember Handlebars requires Handlebars version 1.0.0, COMPILER_REVIS
 */
 Ember.Handlebars = objectCreate(Handlebars);
 
-function makeBindings(options) {
-  var hash = options.hash,
-      hashType = options.hashTypes;
-
-  for (var prop in hash) {
-    if (hashType[prop] === 'ID') {
-      hash[prop + 'Binding'] = hash[prop];
-      hashType[prop + 'Binding'] = 'STRING';
-      delete hash[prop];
-      delete hashType[prop];
-    }
-  }
-}
-
 /**
   Register a bound helper or custom view helper.
 
@@ -24062,7 +24050,6 @@ Ember.Handlebars.helper = function(name, value) {
   if (Ember.View.detect(value)) {
     Ember.Handlebars.registerHelper(name, function(options) {
       Ember.assert("You can only pass attributes (such as name=value) not bare values to a helper for a View", arguments.length < 2);
-      makeBindings(options);
       return Ember.Handlebars.helpers.view.call(this, value, options);
     });
   } else {
@@ -25825,9 +25812,31 @@ var EmberHandlebars = Ember.Handlebars;
 var LOWERCASE_A_Z = /^[a-z]/;
 var VIEW_PREFIX = /^view\./;
 
+function makeBindings(thisContext, options) {
+  var hash = options.hash,
+      hashType = options.hashTypes;
+
+  for (var prop in hash) {
+    if (hashType[prop] === 'ID') {
+      hash[prop + 'Binding'] = hash[prop];
+      hashType[prop + 'Binding'] = 'STRING';
+      delete hash[prop];
+      delete hashType[prop];
+    }
+  }
+
+  if (hash.hasOwnProperty('idBinding')) {
+    // id can't be bound, so just perform one-time lookup.
+    hash.id = EmberHandlebars.get(thisContext, hash.idBinding, options);
+    hashType.id = 'STRING';
+    delete hash.idBinding;
+    delete hashType.idBinding;
+  }
+}
+
 EmberHandlebars.ViewHelper = Ember.Object.create({
 
-  propertiesFromHTMLOptions: function(options, thisContext) {
+  propertiesFromHTMLOptions: function(options) {
     var hash = options.hash, data = options.data;
     var extensions = {},
         classes = hash['class'],
@@ -25933,6 +25942,8 @@ EmberHandlebars.ViewHelper = Ember.Object.create({
     var data = options.data,
         fn = options.fn,
         newView;
+
+    makeBindings(thisContext, options);
 
     if ('string' === typeof path) {
 
@@ -27761,7 +27772,7 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
   ```
 
   ```handlebars
-  {{view Ember.Select contentBinding="names"}}
+  {{view Ember.Select content=names}}
   ```
 
   Would result in the following HTML:
@@ -27774,7 +27785,7 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
   ```
 
   You can control which `<option>` is selected through the `Ember.Select`'s
-  `value` property directly or as a binding:
+  `value` property:
 
   ```javascript
   App.ApplicationController = Ember.Controller.extend({
@@ -27785,8 +27796,8 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
 
   ```handlebars
   {{view Ember.Select
-         contentBinding="names"
-         valueBinding="selectedName"
+         content=names
+         value=selectedName
   }}
   ```
 
@@ -27827,7 +27838,7 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
 
   ```handlebars
   {{view Ember.Select
-         contentBinding="programmers"
+         content=programmers
          optionValuePath="content.id"
          optionLabelPath="content.firstName"}}
   ```
@@ -27842,8 +27853,7 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
   ```
 
   The `value` attribute of the selected `<option>` within an `Ember.Select`
-  can be bound to a property on another object by providing a
-  `valueBinding` option:
+  can be bound to a property on another object:
 
   ```javascript
   App.ApplicationController = Ember.Controller.extend({
@@ -27859,10 +27869,10 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
 
   ```handlebars
   {{view Ember.Select
-         contentBinding="programmers"
+         content=programmers
          optionValuePath="content.id"
          optionLabelPath="content.firstName"
-         valueBinding="currentProgrammer.id"}}
+         value=currentProgrammer.id}}
   ```
 
   Would result in the following HTML with a selected option:
@@ -27879,8 +27889,8 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
   to match the `value` property of the newly selected `<option>`.
 
   Alternatively, you can control selection through the underlying objects
-  used to render each object providing a `selectionBinding`. When the selected
-  `<option>` is changed, the property path provided to `selectionBinding`
+  used to render each object by binding the `selection` option. When the selected
+  `<option>` is changed, the property path provided to `selection`
   will be updated to match the content object of the rendered `<option>`
   element:
 
@@ -27896,10 +27906,10 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
 
   ```handlebars
   {{view Ember.Select
-         contentBinding="programmers"
+         content=programmers
          optionValuePath="content.id"
          optionLabelPath="content.firstName"
-         selectionBinding="selectedPerson"}}
+         selection=selectedPerson}}
   ```
 
   Would result in the following HTML with a selected option:
@@ -27912,7 +27922,7 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
   ```
 
   Interacting with the rendered element by selecting the first option
-  ('Yehuda') will update the `selectedPerson` to match the object of 
+  ('Yehuda') will update the `selectedPerson` to match the object of
   the newly selected `<option>`. In this case it is the first object
   in the `programmers`
 
@@ -27933,8 +27943,8 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
 
   ``` handlebars
   {{view Ember.Select
-         contentBinding="programmers"
-         valueBinding="selectedProgrammer"
+         content=programmers
+         value=selectedProgrammer
   }}
   ```
 
@@ -27965,8 +27975,8 @@ Ember.SelectOptgroup = Ember.CollectionView.extend({
 
   ```handlebars
   {{view Ember.Select
-         contentBinding="programmers"
-         valueBinding="selectedProgrammer"
+         content=programmers
+         value=selectedProgrammer
          prompt="Please select a name"
   }}
   ```
@@ -28018,11 +28028,11 @@ function program3(depth0,data) {
 function program4(depth0,data) {
   
   var hashContexts, hashTypes;
-  hashContexts = {'contentBinding': depth0,'labelBinding': depth0};
-  hashTypes = {'contentBinding': "ID",'labelBinding': "ID"};
+  hashContexts = {'content': depth0,'label': depth0};
+  hashTypes = {'content': "ID",'label': "ID"};
   data.buffer.push(escapeExpression(helpers.view.call(depth0, "view.groupView", {hash:{
-    'contentBinding': ("content"),
-    'labelBinding': ("label")
+    'content': ("content"),
+    'label': ("label")
   },contexts:[depth0],types:["ID"],hashContexts:hashContexts,hashTypes:hashTypes,data:data})));
   }
 
@@ -28038,10 +28048,10 @@ function program6(depth0,data) {
 function program7(depth0,data) {
   
   var hashContexts, hashTypes;
-  hashContexts = {'contentBinding': depth0};
-  hashTypes = {'contentBinding': "STRING"};
+  hashContexts = {'content': depth0};
+  hashTypes = {'content': "ID"};
   data.buffer.push(escapeExpression(helpers.view.call(depth0, "view.optionView", {hash:{
-    'contentBinding': ("this")
+    'content': ("")
   },contexts:[depth0],types:["ID"],hashContexts:hashContexts,hashTypes:hashTypes,data:data})));
   }
 
@@ -28338,15 +28348,6 @@ function program7(depth0,data) {
 @submodule ember-handlebars-compiler
 */
 
-function normalizeHash(hash, hashTypes) {
-  for (var prop in hash) {
-    if (hashTypes[prop] === 'ID') {
-      hash[prop + 'Binding'] = hash[prop];
-      delete hash[prop];
-    }
-  }
-}
-
 /**
 
   The `{{input}}` helper inserts an HTML `<input>` tag into the template,
@@ -28495,8 +28496,6 @@ Ember.Handlebars.registerHelper('input', function(options) {
 
   delete hash.type;
   delete hash.on;
-
-  normalizeHash(hash, types);
 
   if (inputType === 'checkbox') {
     return Ember.Handlebars.helpers.view.call(this, Ember.Checkbox, options);
@@ -28660,7 +28659,6 @@ Ember.Handlebars.registerHelper('textarea', function(options) {
   var hash = options.hash,
       types = options.hashTypes;
 
-  normalizeHash(hash, types);
   return Ember.Handlebars.helpers.view.call(this, Ember.TextArea, options);
 });
 
@@ -31294,10 +31292,7 @@ Ember.Router.reopenClass({
   },
 
   _defaultErrorHandler: function(error, transition) {
-    Ember.Logger.error('Error while loading route:', error);
-
-    // Using setTimeout allows us to escape from the Promise's try/catch block
-    setTimeout(function() { throw error; });
+    Ember.Logger.assert(false, 'Error while loading route: ' + Ember.inspect(error));
   },
 
   _routePath: function(handlerInfos) {
@@ -32774,7 +32769,15 @@ Ember.onLoad('Ember.Handlebars', function(Handlebars) {
           templateContext = helperParameters.context,
           paths = getResolvedPaths(helperParameters),
           length = paths.length,
-          path, i;
+          path, i, normalizedPath;
+
+      if (Ember.FEATURES.isEnabled('link-to-non-block')) {
+        var linkTextPath = helperParameters.options.linkTextPath;
+        if (linkTextPath) {
+          normalizedPath = Ember.Handlebars.normalizePath(templateContext, linkTextPath, helperParameters.options.data);
+          this.registerObserver(normalizedPath.root, normalizedPath.path, this, this.rerender);
+        }
+      }
 
       for(i=0; i < length; i++) {
         path = paths[i];
@@ -32783,8 +32786,7 @@ Ember.onLoad('Ember.Handlebars', function(Handlebars) {
           continue;
         }
 
-        var normalizedPath =
-          Ember.Handlebars.normalizePath(templateContext, path, helperParameters.options.data);
+        normalizedPath = Ember.Handlebars.normalizePath(templateContext, path, helperParameters.options.data);
         this.registerObserver(normalizedPath.root, normalizedPath.path, this, this._paramsChanged);
       }
 
@@ -33306,6 +33308,24 @@ Ember.onLoad('Ember.Handlebars', function(Handlebars) {
         hash = options.hash;
 
     hash.disabledBinding = hash.disabledWhen;
+
+    if (Ember.FEATURES.isEnabled('link-to-non-block')) {
+      if (!options.fn) {
+        var linkTitle = params.shift();
+        var linkType = options.types.shift();
+        var context = this;
+        if (linkType === 'ID') {
+          options.linkTextPath = linkTitle;
+          options.fn = function() {
+            return Ember.Handlebars.get(context, linkTitle, options);
+          };
+        } else {
+          options.fn = function() {
+            return linkTitle;
+          };
+        }
+      }
+    }
 
     hash.parameters = {
       context: this,

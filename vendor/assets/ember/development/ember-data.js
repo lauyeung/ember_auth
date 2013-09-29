@@ -7,7 +7,8 @@
 
 
 
-// Last commit: 7e0d0d1 (2013-09-26 14:47:45 -0400)
+// Version: v1.0.0-beta.3-2-ga9091a4
+// Last commit: a9091a4 (2013-09-28 19:41:57 -0700)
 
 
 (function() {
@@ -2053,7 +2054,7 @@ DS.Store = Ember.Object.extend(DS._Mappable, {
   didSaveRecord: function(record, data) {
     if (data) {
       // normalize relationship IDs into records
-      data = normalizeRelationships(this, record.constructor, data);
+      data = normalizeRelationships(this, record.constructor, data, record);
 
       this.updateId(record, data);
     }
@@ -2504,11 +2505,12 @@ DS.Store = Ember.Object.extend(DS._Mappable, {
   }
 });
 
-function normalizeRelationships(store, type, data) {
+function normalizeRelationships(store, type, data, record) {
   type.eachRelationship(function(key, relationship) {
     // A link (usually a URL) was already provided in
     // normalized form
     if (data.links && data.links[key]) {
+      if (record && relationship.options.async) { record._relationships[key] = null; }
       return;
     }
 
@@ -4680,11 +4682,7 @@ DS.belongsTo = function(type, options) {
         store = get(this, 'store'), belongsTo, typeClass;
 
     if (typeof type === 'string') {
-      if (type.indexOf(".") === -1) {
-        typeClass = store.modelFor(type);
-      } else {
-        typeClass = get(Ember.lookup, type);
-      }
+      typeClass = store.modelFor(type);
     } else {
       typeClass = type;
     }
@@ -5028,7 +5026,7 @@ DS.Model.reopenClass({
       // it to the map.
       if (meta.isRelationship) {
         if (typeof meta.type === 'string') {
-          meta.type = Ember.get(Ember.lookup, meta.type);
+          meta.type = this.store.modelFor(meta.type);
         }
 
         var relationshipsForType = map.get(meta.type);
@@ -5113,7 +5111,7 @@ DS.Model.reopenClass({
         type = meta.type;
 
         if (typeof type === 'string') {
-          type = get(this, type, false) || get(Ember.lookup, type);
+          type = get(this, type, false) || this.store.modelFor(type);
         }
 
         Ember.assert("You specified a hasMany (" + meta.type + ") on " + meta.parentType + " but " + meta.type + " was not found.",  type);
@@ -6336,7 +6334,11 @@ DS.RESTSerializer = DS.JSONSerializer.extend({
 
       /*jshint loopfunc:true*/
       forEach.call(payload[prop], function(hash) {
-        hash = this.normalize(type, hash, prop);
+        var typeName = this.typeForRoot(prop),
+            type = store.modelFor(typeName),
+            typeSerializer = store.serializerFor(type);
+
+        hash = typeSerializer.normalize(type, hash, prop);
 
         var isFirstCreatedRecord = isPrimary && !recordId && !primaryRecord,
             isUpdatedRecord = isPrimary && coerceId(hash.id) === recordId;
@@ -6476,11 +6478,12 @@ DS.RESTSerializer = DS.JSONSerializer.extend({
 
       var typeName = this.typeForRoot(typeKey),
           type = store.modelFor(typeName),
+          typeSerializer = store.serializerFor(type),
           isPrimary = (!forcedSecondary && (typeName === primaryTypeName));
 
       /*jshint loopfunc:true*/
       var normalizedArray = map.call(payload[prop], function(hash) {
-        return this.normalize(type, hash, prop);
+        return typeSerializer.normalize(type, hash, prop);
       }, this);
 
       if (isPrimary) {
@@ -6992,6 +6995,8 @@ DS.RESTAdapter = DS.Adapter.extend({
     This method will be called with the parent record and `/posts/1/comments`.
 
     It will make an Ajax request to the originally specified URL.
+    If the URL is host-relative (starting with a single slash), the
+    request will use the host specified on the adapter (if any).
 
     @method findHasMany
     @see RESTAdapter/buildURL
@@ -7002,8 +7007,13 @@ DS.RESTAdapter = DS.Adapter.extend({
     @returns Promise
   */
   findHasMany: function(store, record, url) {
-    var id   = get(record, 'id'),
+    var host = get(this, 'host'),
+        id   = get(record, 'id'),
         type = record.constructor.typeKey;
+
+    if (host && url.charAt(0) === '/' && url.charAt(1) !== '/') {
+      url = host + url;
+    }
 
     return this.ajax(this.urlPrefix(url, this.buildURL(type, id)), 'GET');
   },

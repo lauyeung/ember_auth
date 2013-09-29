@@ -5,4 +5,8 @@ class Api::UsersController < ApplicationController
     render json: @user
   end
 
+  def create
+    binding.pry
+  end
+
 end

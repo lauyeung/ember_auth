@@ -11,5 +11,6 @@
     </div>
     {{input class="submit btn btn-primary" type="submit" value="Login"}}
   </form>
+  {{#link-to 'registration.new'}}Sign Up{{/link-to}}
   {{#if errorMessage}}<span class="text-danger">{{errorMessage}}</span>{{/if}}
 {{/if}}

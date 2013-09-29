@@ -3,10 +3,11 @@ EmberAuth::Application.routes.draw do
   devise_scope :user do
     post "session" => "session#create"
     get "session" => "session#show"
+    delete "session" => "session#destroy"
   end
 
   namespace :api do
-    resources :users, only: [:show]
+    resources :users, only: [:show, :create]
   end
 
   # The priority is based upon order of creation: first created -> highest priority.
