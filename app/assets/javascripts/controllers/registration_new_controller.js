@@ -1,17 +1,21 @@
 App.RegistrationNewController = Ember.ObjectController.extend({
+  needs: 'session',
+
   actions: {
     signUp: function() {
       userInfo = this.getProperties('username', 'email', 'first_name', 'last_name', 'password', 'password_confirmation');
       data = {user: userInfo};
-      $.post('/registration', data, null, 'json').then(this.onDidCreate.bind(this), this.onError.bind(this));
+      $.post('/registrations', data, null, 'json').then(this.onDidCreate.bind(this), this.onError.bind(this));
     },
     cancel: function() {
       this.transitionToRoute('index');
       return this.get('content').rollback();
     }
   },
-  onDidCreate: function(user) {
-    this.store.push('user', user.get('data'));
+  onDidCreate: function(response) {
+    var sessionsController = this.get('controllers.session');
+    this.store.push('user', response.user);
+    sessionsController.setCurrentUser(response.user.id);
     return this.transitionToRoute('index');
   },
   onError: function(error) {

@@ -1,10 +1,10 @@
 EmberAuth::Application.routes.draw do
-  devise_for :users, controllers: { sessions: 'session', registrations: 'registration' }
+  devise_for :users, controllers: { sessions: 'session', registrations: 'registrations' }
   devise_scope :user do
     post "session" => "session#create"
     get "session" => "session#show"
     delete "session" => "session#destroy"
-    post "registration" => "registration#create"
+    post "registrations" => "registrations#create"
   end
 
   namespace :api do
